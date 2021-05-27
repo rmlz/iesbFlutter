@@ -1,110 +1,159 @@
 import 'package:flutter/material.dart';
-import 'package:english_words/english_words.dart';
 
-void main() => runApp(MyApp());
+void main() {
+  runApp(
+    FriendlyChatApp(),
+  );
+}
 
-class MyApp extends StatelessWidget {
+class FriendlyChatApp extends StatelessWidget {
+  const FriendlyChatApp({
+    Key? key,
+  }) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Startup Name Generator',
-      theme: ThemeData(
-        scaffoldBackgroundColor:Colors.lightGreenAccent,
-        primaryColor: Colors.lightBlue,
-      ),                         // ... to here.
-      home: RandomWords(),
+        title: 'FriendlyChat',
+        home: ChatScreen()
     );
   }
 }
 
-class RandomWords extends StatefulWidget {
+class ChatScreen extends StatefulWidget {
+
   @override
-  _RandomWordsState createState() => _RandomWordsState();
+  _ChatScreenState createState() => _ChatScreenState();
 }
 
-class _RandomWordsState extends State<RandomWords> {
-  final _suggestions = <WordPair>[];
-  final _saved = <WordPair>{};
-  final _biggerFont = const TextStyle(fontSize: 18);
+class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
+  final List<ChatMessage> _messages = [];
+  final _textController = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  bool _isComposing = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Name Generator'),
-        actions: [
-          IconButton(icon: Icon(Icons.list), onPressed: _pushSaved),
-        ],
-      ),
-      body: _buildSuggestions(),
+      appBar: AppBar(title: Text('FriendlyChat')),
+      body: Column(children:
+      [
+        Flexible(
+          child: ListView.builder(
+            padding: EdgeInsets.all(8),
+            reverse: true,
+            itemBuilder: (_, int index) => _messages[index],
+            itemCount: _messages.length,
+          ),
+        ),
+        Divider(height: 1),
+        Container(
+            decoration: BoxDecoration(
+                color: Theme.of(context).cardColor),
+            child: _buildTextComposer()
+        ),
+      ]),
     );
   }
 
-  void _pushSaved() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        // NEW lines from here...
-        builder: (BuildContext context) {
-          final tiles = _saved.map(
-                (WordPair pair) {
-              return ListTile(
-                title: Text(
-                  pair.asPascalCase,
-                  style: _biggerFont,
+  Widget _buildTextComposer() {
+    return IconTheme(
+      data: IconThemeData(color: Theme.of(context).accentColor),
+      child: Container(
+          margin: EdgeInsets.symmetric(horizontal:8.0),
+          child: Row(
+            children: [
+              Flexible(
+                child: TextField(
+                  controller: _textController,
+                  onChanged: (String text) {
+                    setState(() {
+                      _isComposing = text.isNotEmpty;
+                    });
+                  },
+                  onSubmitted: _isComposing ? _handleSubmitted : null,
+                  decoration: InputDecoration.collapsed(hintText: "Send a Message"),
+                  focusNode: _focusNode,
                 ),
-              );
-            },
-          );
-          final divided = tiles.isNotEmpty
-              ? ListTile.divideTiles(context: context, tiles: tiles).toList()
-              : <Widget>[];
-
-          return Scaffold(
-            appBar: AppBar(
-              title: Text('Saved Suggestions'),
-            ),
-            body: ListView(children: divided),
-          );
-        }, // ...to here.
+              ),
+              Container(
+                  margin: EdgeInsets.symmetric(horizontal: 4),
+                  child: IconButton(
+                      icon: const Icon(Icons.send),
+                      onPressed: _isComposing ?
+                          () => _handleSubmitted(_textController.text)
+                          : null
+                  )
+              )
+            ],
+          )
       ),
     );
   }
-
-  Widget _buildSuggestions() {
-    return ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemBuilder: (BuildContext _context, int i) {
-          if (i.isOdd) {
-            return Divider();
-          }
-          final int index = i ~/ 2;
-          if (index >= _suggestions.length) {
-            _suggestions.addAll(generateWordPairs().take(10));
-          }
-          return _buildRow(_suggestions[index]);
-        });
+  void _handleSubmitted(String text) {
+    _textController.clear();
+    setState(() {
+      _isComposing = false;
+    });
+    ChatMessage message = ChatMessage(
+      text: text,
+      animationController: AnimationController(
+        duration: const Duration(milliseconds: 700),
+        vsync: this,
+      ),
+    );
+    setState(() {
+      _messages.insert(0, message);
+    });
+    _focusNode.requestFocus();
+    message.animationController.forward();
   }
 
-  Widget _buildRow(WordPair pair) {
-    final alreadySaved = _saved.contains(pair);
-    return ListTile(
-        title: Text(
-          pair.asPascalCase,
-          style: _biggerFont,
+  @override
+  void dispose() {
+    for (var message in _messages){
+      message.animationController.dispose();
+    }
+    super.dispose();
+  }
+}
+
+class ChatMessage extends StatelessWidget {
+  ChatMessage({required this.text, required this.animationController});
+  final String text;
+  final AnimationController animationController;
+  String _name = "Your Name";
+
+  @override
+  Widget build(BuildContext context) {
+    return SizeTransition(
+      sizeFactor:
+      CurvedAnimation(parent: animationController, curve: Curves.easeOut),
+      axisAlignment: 0,
+      child: Container(
+        margin: EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              child: CircleAvatar(child: Text(_name[0]),),
+            ),
+            Expanded(            // NEW
+                child: Column(     // MODIFIED
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_name, style: Theme.of(context).textTheme.headline4),
+                    Container(
+                      margin: EdgeInsets.only(top: 5.0),
+                      child: Text(text),
+                    ),
+                  ],
+                )
+            )
+          ],
         ),
-        trailing: Icon( // NEW from here...
-          alreadySaved ? Icons.favorite : Icons.favorite_border,
-          color: alreadySaved ? Colors.red : null,
-        ),
-        onTap: () { // NEW lines from here...
-          setState(() {
-            if (alreadySaved) {
-              _saved.remove(pair);
-            } else {
-              _saved.add(pair);
-            }
-          });
-        }
+      ),
     );
   }
 }
