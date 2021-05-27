@@ -1,0 +1,6 @@
+package com.example.mata_burro_flutter
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity: FlutterActivity() {
+}
